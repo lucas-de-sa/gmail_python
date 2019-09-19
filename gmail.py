@@ -21,6 +21,7 @@ class Gmail:
         self.session = None
         self.mail = None
         self.messages = []
+        self.cur_folder = ''
 
     def __session_SMTP(self):
         server = smtplib.SMTP_SSL(
@@ -44,11 +45,11 @@ class Gmail:
         self.session.sendmail(self.username, recipient, message)
         self.session.close()
 
-    def __check_folder(self, recipient_folder):
-        resp, _ = self.mail.select(recipient_folder)
+    def __check_folder(self, folder):
+        resp, _ = self.mail.select(folder)
         if resp != 'OK':
             print("ERROR: Unable to open '{}' folder. Please check if the name's correct and try again.".format(
-                recipient_folder))
+                folder))
             sys.exit(1)
 
     def __parse_mailbox(self, data):
@@ -91,11 +92,12 @@ class Gmail:
             fmt = '{0}    : [Flags = {1}; Separator = {2}'
             print(fmt.format(name, flags, separator))
 
-    def set_folder(self, recipient_folder='Inbox'):
+    def set_folder(self, folder='Inbox'):
         self.__session_IMAP()
         mail = self.mail
+        self.cur_folder = folder
 
-        self.__check_folder(recipient_folder)
+        self.__check_folder(folder)
         mbox_response, msg_numbers = mail.search(None, 'ALL')
 
         self.messages = []
@@ -107,13 +109,32 @@ class Gmail:
             msg_subject = msg_object['subject']
             msg_from = msg_object['from']
 
-            if (msg_subject != 'Test 3 - Attachments'):
-                continue
+            # if (msg_subject != 'Test 3 - Attachments'):
+            #    continue
 
             body, attachment = self.__get_body_attachment(msg_object)
             self.messages.append(
                 {'num': num, 'subject': msg_subject, 'attachment': attachment, 'body': body})
         self.__logout_IMAP()
+
+    def list_messages(self):
+        if (self.cur_folder == ''):
+            print(
+                "To view messages please set a folder with function set_folder() first.\n")
+            return
+
+        messages = self.messages
+
+        print("You have {} e-mail messages in {} folder:".format(len(messages), self.cur_folder))
+        for i in range(len(messages)):
+            message = messages[i]
+            print("ID: {}\tNumber in Folder:{}\tSubject:{}".format(
+                i, message['num'], message['subject']))
+        print("")
+
+    def read_message(self, id):
+        message = self.messages[id]
+        print("Subject:{}\n{}".format(message['subject'], message['body']))
 
 
 user = "redes.ep.teste@gmail.com"       # Remetente
@@ -124,14 +145,18 @@ subject = "This is a test"
 body = "Sending this goddamn e-mail"
 
 gm = Gmail(user, password)
-#gm.send_message(recipient, subject, body)
-#gm.set_folder(recipient_folder='"Folder 01/Children_Folder_01"')
-gm.set_folder()
-a = gm.messages[0]['attachment']
 
-fp = open(a['filepath'], 'wb')
-fp.write(a['part'].get_payload(decode=True))
-fp.close()
+# gm.send_message(recipient, subject, body)
+# gm.set_folder(folder='"Folder 01/Children_Folder_01"')
+gm.set_folder()
+# a = gm.messages[0]['attachment']
+gm.list_messages()
+gm.read_message(0)
+
+# gm.list_messages()
+# fp = open(a['filepath'], 'wb')
+# fp.write(a['part'].get_payload(decode=True))
+# fp.close()
 
 # gm.list_folders()
 # test commit
