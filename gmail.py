@@ -2,7 +2,6 @@ import smtplib  # Library for the Simple Mail Transfer Protocol
 import imaplib  # Library for the Internet Message Access Protocol
 import email    # Library for managing email messages
 import ssl
-import base64
 import os
 import re
 
@@ -26,8 +25,7 @@ class Gmail:
         self.cur_folder = ''
 
         self.session_IMAP()
-        self.load_folders()
-        # self.set_folder()
+        self.load_mailbox()
 
     def __session_SMTP(self):
         server = smtplib.SMTP_SSL(
@@ -40,7 +38,7 @@ class Gmail:
                                       ssl_context=self.context)
         self.mail.login(self.username, self.password)
 
-    def __logout_IMAP(self):
+    def logout_IMAP(self):
         self.mail.close()
         self.mail.logout()
 
@@ -92,7 +90,7 @@ class Gmail:
 
         return body, attachment
 
-    def load_folders(self):
+    def load_mailbox(self):
         mail = self.mail
         resp, data = mail.list('""', '*')
 
@@ -116,22 +114,23 @@ class Gmail:
         user_folders.pop()
         self.folders = user_folders + gmail_folders
 
-    def list_folders(self):
+    def list_mailboxes(self):
         i = 0
         for folder in self.folders:
             print('{} - {}'.format(i, folder))
             i += 1
+        print("")
 
     # Private function to check if user's specified folder exists
-    def __check_folder(self, folder):
+    def __check_mailbox(self, folder):
         resp, _ = self.mail.select(folder)
         if resp != 'OK':
             print("ERROR: Unable to open '{}' folder. Please check if the name's correct and try again.".format(
                 folder))
-            self.__logout_IMAP
+            self.logout_IMAP
             sys.exit(1)
 
-    def set_folder(self, folder='Inbox'):
+    def set_mailbox(self, folder='Inbox'):
         """Loads selected folder into class.messages list of dictionaries that follows the following format
 
             message = [
@@ -142,7 +141,7 @@ class Gmail:
         mail = self.mail
         self.cur_folder = folder
 
-        self.__check_folder(folder)
+        self.__check_mailbox(folder)
         mbox_response, msg_numbers = mail.search(None, 'ALL')
 
         self.messages = []
@@ -159,7 +158,7 @@ class Gmail:
             body, attachment = self.__get_body_attachment(msg_object)
             self.messages.append(
                 {'id': uid, 'subject': msg_subject, 'attachment': attachment, 'body': body})
-        # self.__logout_IMAP()
+        # self.logout_IMAP()
 
     def get_current_folder(self):
         print('You are in {} folder'.format(self.cur_folder))
@@ -178,13 +177,22 @@ class Gmail:
         message = self.messages[id]
         print("Subject:{}\n{}".format(message['subject'], message['body']))
 
+        # If message has attachment, we save it on "./attachments/"
+        attachment = message['attachment']
+        if (isinstance(attachment, dict)):
+            print("saving attachment to: {}\n\n".format(
+                attachment['filepath']))
+            file = open(attachment['filepath'], "wb")
+            file.write(attachment['part'].get_payload(decode=True))
+            file.close()
+
     def create_mailbox(self, name):
         self.mail.create(name)
-        self.load_folders()
+        self.load_mailbox()
 
     def delete_mailbox(self, name):
         self.mail.delete(name)
-        self.load_folders()
+        self.load_mailbox()
 
     def move_message(self, m_id, folder_name):
         # print(self.messages[m_id]['id'])
@@ -203,33 +211,52 @@ class Gmail:
         self.mail.store(uid, '+FLAGS', '(\Deleted)')
 
 
+"""
 user = "redes.ep.teste@gmail.com"       # Remetente
 password = "redesach2026"
 
-recipient = "redes.ep.teste@gmail.com"  # Destinatário
-subject = "This is a test"
-body = "Sending this goddamn e-mail"
+gm = Gmail(user, password)
+gm.set_mailbox()
+gm.read_message(1)
+"""
 
-folder = '"Folder 01"'
+"""
+user = "redes.ep.teste@gmail.com"       # Remetente
+password = "redesach2026"
+
+#recipient = "redes.ep.teste@gmail.com"  # Destinatário
+#subject = "This is a test"
+#body = "Sending this goddamn e-mail"
+
+#folder = '"Folder 01/Children_Folder_01"'
 #folder = '"[Gmail]/Sent Mail"'
 
 gm = Gmail(user, password)
 
-# gm.send_message(recipient, subject, body)
+#gm.send_message(recipient, subject, body)
 
-# gm.list_messages()
+#gm.list_messages()
 #gm.create_mailbox('"Folder 01"')
 #gm.create_mailbox('"Folder 01/Children_Folder_01"')
 #gm.delete_mailbox('"Folder 01/Children_Folder_01"')
-gm.list_folders()
-gm.set_folder(folder)
+gm.list_mailboxes()
 
-gm.get_messages()
+gm.delete_mailbox('"Folder 03"')
 
-gm.move_message(0, gm.folders[3])
+# gm.list_mailboxes()
 
-# gm.list_folders()
-# gm.set_folder(folder)
+# gm.set_mailbox(folder)
+
+# gm.get_messages()
+
+# gm.list_mailboxes()
+
+#gm.create_mailbox('"Folder 03"')
+
+#gm.move_message(0, gm.folders[1])
+
+# gm.list_mailboxes()
+# gm.set_mailbox(folder)
 # a = gm.messages[0]['attachment']
 # gm.list_messages()
 # gm.read_message(0)
@@ -239,5 +266,6 @@ gm.move_message(0, gm.folders[3])
 # fp.write(a['part'].get_payload(decode=True))
 # fp.close()
 
-# gm.list_folders()
+# gm.list_mailboxes()
 # test commit
+"""
