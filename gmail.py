@@ -1,6 +1,7 @@
 import smtplib  # Library for the Simple Mail Transfer Protocol
 import imaplib  # Library for the Internet Message Access Protocol
-import email    # Library for managing email messages
+# Library for managing email messages, which consist of headers (RFC 2822 style field names) and payloads
+import email
 import ssl
 import os
 import re
@@ -59,6 +60,7 @@ class Gmail:
         attachment = None
         for part in msg_object.walk():      # Itera pelas subpartes de um objeto EmailMessage
             content_type = part.get_content_type()
+            # Gets disposition of the content in each part of a message object
             disp = str(part.get('Content-Disposition'))
 
             if (content_type == 'text/plain'):
@@ -76,9 +78,11 @@ class Gmail:
                 body = part.get_payload(decode=True).decode(
                     encoding=charset, errors="ignore")
 
+            # If the content disposition is 'attachment', we download it
             if ('attachment' in disp):
                 filename = part.get_filename()
 
+                # Apating filepaths between windows (nt) and linux
                 if (os.name == 'nt'):
                     filepath = os.path.join(
                         os.getcwd() + "\\attachments", filename)
@@ -150,14 +154,17 @@ class Gmail:
         # Itera por cada mensagem em uma pasta de e-mails
         # uid = unique ID of each e-mail
         for uid in msg_numbers[0].split():
+            # Fetches parts of messages in the RFC822 format
             fetch_resp, raw_msg = mail.fetch(uid, '(RFC822)')
             msg_object = email.message_from_bytes(raw_msg[0][1])
-            msg_subject = msg_object['subject']
+
             msg_from = msg_object['from']
+            msg_to = msg_object['To']
+            msg_subject = msg_object['subject']
 
             body, attachment = self.__get_body_attachment(msg_object)
             self.messages.append(
-                {'id': uid, 'subject': msg_subject, 'attachment': attachment, 'body': body})
+                {'id': uid, 'from': msg_from, 'to': msg_to, 'subject': msg_subject, 'attachment': attachment, 'body': body})
         # self.logout_IMAP()
 
     def get_current_folder(self):
@@ -175,7 +182,8 @@ class Gmail:
 
     def read_message(self, id):
         message = self.messages[id]
-        print("Subject:{}\n{}".format(message['subject'], message['body']))
+        print("From: {}\nTo: {}\nSubject:{}\n{}".format(
+            message['from'], message['to'], message['subject'], message['body']))
 
         # If message has attachment, we save it on "./attachments/"
         attachment = message['attachment']
@@ -195,77 +203,14 @@ class Gmail:
         self.load_mailbox()
 
     def move_message(self, m_id, folder_name):
-        # print(self.messages[m_id]['id'])
-
         if "[Gmail]" in folder_name:
             # Gets 'pure' Gmail folder root name ("[Gmail]/Trash" becomes '/Trash"'')
             folder_name = folder_name.split("]", 1)[1]
             folder_name = folder_name[:-1]             # Removes last '"'
             folder_name = folder_name.replace("/", "\\")
-        print(folder_name)
 
         uid = self.messages[m_id]['id']
         # Moves message to new folder
         self.mail.store(uid, '+X-GM-LABELS', folder_name)
         # Deletes original message
         self.mail.store(uid, '+FLAGS', '(\Deleted)')
-
-
-"""
-user = "redes.ep.teste@gmail.com"       # Remetente
-password = "redesach2026"
-
-gm = Gmail(user, password)
-gm.set_mailbox()
-gm.read_message(1)
-"""
-
-"""
-user = "redes.ep.teste@gmail.com"       # Remetente
-password = "redesach2026"
-
-#recipient = "redes.ep.teste@gmail.com"  # Destinatário
-#subject = "This is a test"
-#body = "Sending this goddamn e-mail"
-
-#folder = '"Folder 01/Children_Folder_01"'
-#folder = '"[Gmail]/Sent Mail"'
-
-gm = Gmail(user, password)
-
-#gm.send_message(recipient, subject, body)
-
-#gm.list_messages()
-#gm.create_mailbox('"Folder 01"')
-#gm.create_mailbox('"Folder 01/Children_Folder_01"')
-#gm.delete_mailbox('"Folder 01/Children_Folder_01"')
-gm.list_mailboxes()
-
-gm.delete_mailbox('"Folder 03"')
-
-# gm.list_mailboxes()
-
-# gm.set_mailbox(folder)
-
-# gm.get_messages()
-
-# gm.list_mailboxes()
-
-#gm.create_mailbox('"Folder 03"')
-
-#gm.move_message(0, gm.folders[1])
-
-# gm.list_mailboxes()
-# gm.set_mailbox(folder)
-# a = gm.messages[0]['attachment']
-# gm.list_messages()
-# gm.read_message(0)
-
-# gm.list_messages()
-# fp = open(a['filepath'], 'wb')
-# fp.write(a['part'].get_payload(decode=True))
-# fp.close()
-
-# gm.list_mailboxes()
-# test commit
-"""

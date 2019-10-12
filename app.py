@@ -1,4 +1,5 @@
 from gmail import Gmail
+from gmail_POP3 import Gmail_POP
 import os
 
 
@@ -22,6 +23,26 @@ class App:
             os.system('cls')
         else:
             os.system('clear')
+
+    def send(self):
+        recipient = input(
+            "Type in the address of who you want to send an e-mail: ")
+        subject = input("Type in the subject: ")
+        print("Type in the body (enter a blank line when you`re finished): ")
+
+        body = ""
+        stopword = ""
+        while True:
+            line = input()
+            if line.strip() == stopword:
+                break
+            body += "%s\n" % line
+
+        self.gmail.send_message(recipient, subject, body)
+
+        self.__clear_screen()
+        print("message sent to {}\n\n".format(recipient))
+        self.main_menu()
 
     def select_folder(self, mode='Read'):
         if (mode == 'Read'):
@@ -59,25 +80,19 @@ class App:
         self.__clear_screen()
         self.gmail.read_message(selection)
 
-    def send(self):
-        recipient = input(
-            "Type in the address of who you want to send an e-mail: ")
-        subject = input("Type in the subject: ")
-        print("Type in the body (enter a blank line when you`re finished): ")
+    def read_POP3(self):
+        gm = Gmail_POP(self.username, self.password)
+        gm.session_POP()
 
-        body = ""
-        stopword = ""
-        while True:
-            line = input()
-            if line.strip() == stopword:
-                break
-            body += "%s\n" % line
+        print("Downloading all messages.\n")
+        gm.get_mails()
+        gm.set_mailbox()
 
-        self.gmail.send_message(recipient, subject, body)
+        gm.get_messages()
+        selection = int(input("Select which e-mail to read:\n"))
 
         self.__clear_screen()
-        print("message sent to {}\n\n".format(recipient))
-        self.main_menu()
+        gm.read_message(selection)
 
     def create_folder(self):
         folders = self.gmail.folders
@@ -133,6 +148,7 @@ class App:
 
         total_messages = len(self.gmail.messages)
         m_id = int(input("Select which e-mail to move:\n"))
+        print("")
 
         destination_folder = self.select_folder(mode='Move_Message')
         self.gmail.move_message(m_id, destination_folder)
@@ -165,7 +181,7 @@ class App:
 
     def main_menu(self):
         selection = input(
-            "Type what you would like to do and press Enter:\n1 - Send e-mails\n2 - Read e-mails\n3 - Folders\n9 - Exit\n\n")
+            "Type what you would like to do and press Enter:\n1 - Send e-mails\n2 - Read e-mails (IMAP)\n3 - Read e-mails (POP3)\n4 - Folders\n9 - Exit\n\n")
 
         if (selection == "1"):
             self.__clear_screen()
@@ -177,6 +193,10 @@ class App:
             self.gmail.logout_IMAP()
             self.main_menu()
         elif (selection == "3"):
+            self.__clear_screen()
+            self.read_POP3()
+            self.main_menu()
+        elif (selection == "4"):
             self.__clear_screen()
             self.folders_ops()
         elif (selection == "9"):
