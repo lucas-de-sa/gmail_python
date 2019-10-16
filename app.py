@@ -45,6 +45,7 @@ class App:
         self.main_menu()
 
     def select_folder(self, mode='Read'):
+        self.gmail.load_mailbox()
         if (mode == 'Read'):
             print("From which folder would you like to read?\n")
         if (mode == 'Move_Message'):

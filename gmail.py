@@ -12,6 +12,7 @@ class Gmail:
 
     smtp_server = "smtp.gmail.com"
     imap_server = "imap.gmail.com"
+    # SSL context object with default settings
     context = ssl.create_default_context()
 
     def __init__(self, username, password, smtp_port=465, imap_port=993):
@@ -21,16 +22,14 @@ class Gmail:
         self.imap_port = imap_port
         self.session = None
         self.mail = None
+        # List of dicts {'id': , 'from': , 'to': , 'subject': , 'attachment': , 'body': }
         self.messages = []
-        self.folders = []
+        self.folders = []  # List of folders in account
         self.cur_folder = ''
-
-        self.session_IMAP()
-        self.load_mailbox()
 
     def __session_SMTP(self):
         server = smtplib.SMTP_SSL(
-            self.smtp_server, self.smtp_port, context=self.context)
+            self.smtp_server, self.smtp_port, context=self.context)  # Connects into a encrypted SSL socket
         server.login(self.username, self.password)
         self.session = server
 
@@ -51,13 +50,50 @@ class Gmail:
         self.session.close()
 
     def __parse_mailbox(self, data):
+        """
+            Extracts folder name from the complete info of a folder.
+            ie: (\\HasChildren) "/" "Folder 01"' becomes '"Folder 01"'
+        """
         flags, b, c = data.partition(' ')
         separator, b, name = c.partition(' ')
         return (flags, separator.replace('"', ''), name.replace('"', ''))
 
+    def load_mailbox(self):
+        mail = self.mail
+        resp, data = mail.list('""', '*')  # Lists mailbox names in "data"
+
+        self.folders = []
+        user_folders = ['"INBOX"']
+        gmail_folders = []
+        for mbox in data:
+            flags, separator, name = self.__parse_mailbox(bytes.decode(mbox))
+
+            if "[Gmail]/" in name:
+                name = name.split("/ ", 1)[1]
+                gmail_folders.append('"{}"'.format(name))
+                continue
+
+            if name == 'INBOX':
+                continue
+
+            user_folders.append('"{}"'.format(name))
+
+        # Removing useless root Gmail folder ( '/ [Gmail]' )
+        user_folders.pop()
+        self.folders = user_folders + gmail_folders
+
+    def list_mailboxes(self):
+        i = 0
+        for folder in self.folders:
+            print('{} - {}'.format(i, folder))
+            i += 1
+        print("")
+
     def __get_body_attachment(self, msg_object):
         body = ''
         attachment = None
+
+        # Iterar por partes de uma mensagem foi adaptado do código do Tim Poulsen neste endereço https://www.timpoulsen.com/2018/reading-email-with-python.html
         for part in msg_object.walk():      # Itera pelas subpartes de um objeto EmailMessage
             content_type = part.get_content_type()
             # Gets disposition of the content in each part of a message object
@@ -94,37 +130,6 @@ class Gmail:
 
         return body, attachment
 
-    def load_mailbox(self):
-        mail = self.mail
-        resp, data = mail.list('""', '*')
-
-        self.folders = []
-        user_folders = ['"INBOX"']
-        gmail_folders = []
-        for mbox in data:
-            flags, separator, name = self.__parse_mailbox(bytes.decode(mbox))
-
-            if "[Gmail]/" in name:
-                name = name.split("/ ", 1)[1]
-                gmail_folders.append('"{}"'.format(name))
-                continue
-
-            if name == 'INBOX':
-                continue
-
-            user_folders.append('"{}"'.format(name))
-
-        # Removing useless root Gmail folder ( '/ [Gmail]' )
-        user_folders.pop()
-        self.folders = user_folders + gmail_folders
-
-    def list_mailboxes(self):
-        i = 0
-        for folder in self.folders:
-            print('{} - {}'.format(i, folder))
-            i += 1
-        print("")
-
     # Private function to check if user's specified folder exists
     def __check_mailbox(self, folder):
         resp, _ = self.mail.select(folder)
@@ -138,7 +143,7 @@ class Gmail:
         """Loads selected folder into class.messages list of dictionaries that follows the following format
 
             message = [
-                        [ {'id': '', 'subject': '', 'attachment': '', 'body': ''} ],
+                        [ {'id': , 'from': , 'to': , 'subject': , 'attachment': , 'body': } ],
                         ...
                       ]
         """
@@ -165,7 +170,6 @@ class Gmail:
             body, attachment = self.__get_body_attachment(msg_object)
             self.messages.append(
                 {'id': uid, 'from': msg_from, 'to': msg_to, 'subject': msg_subject, 'attachment': attachment, 'body': body})
-        # self.logout_IMAP()
 
     def get_current_folder(self):
         print('You are in {} folder'.format(self.cur_folder))
@@ -214,3 +218,10 @@ class Gmail:
         self.mail.store(uid, '+X-GM-LABELS', folder_name)
         # Deletes original message
         self.mail.store(uid, '+FLAGS', '(\Deleted)')
+
+
+'''
+gm = Gmail("redes.ep.teste@gmail.com", "redesach2026")
+gm.session_IMAP()
+gm.load_mailbox()
+'''
